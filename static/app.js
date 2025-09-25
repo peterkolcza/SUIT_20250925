@@ -5,6 +5,8 @@ const output = document.getElementById("output");
 const checkUnique = document.getElementById("check-unique");
 const clearButton = document.getElementById("clear");
 const exampleButton = document.getElementById("load-example");
+const randomButton = document.getElementById("load-random");
+const verifyButton = document.getElementById("verify");
 
 const EXAMPLE_BOARD = [
   [5, 3, 0, 0, 7, 0, 0, 0, 0],
@@ -16,6 +18,59 @@ const EXAMPLE_BOARD = [
   [0, 6, 0, 0, 0, 0, 2, 8, 0],
   [0, 0, 0, 4, 1, 9, 0, 0, 5],
   [0, 0, 0, 0, 8, 0, 0, 7, 9],
+];
+
+const RANDOM_PUZZLES = [
+  {
+    label: "Classic example",
+    description: "Standard solvable grid.",
+    board: EXAMPLE_BOARD,
+  },
+  {
+    label: "Multiple solutions",
+    description: "This puzzle has more than one valid solution.",
+    board: [
+      [0, 0, 0, 0, 0, 0, 1, 0, 0],
+      [0, 0, 0, 0, 0, 9, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 3, 0, 0, 4, 0, 0, 0, 0],
+      [0, 5, 0, 0, 0, 0, 0, 2, 0],
+      [0, 0, 0, 0, 8, 0, 0, 3, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 7, 0, 0, 0, 0, 0],
+      [0, 0, 1, 0, 0, 0, 0, 0, 0],
+    ],
+  },
+  {
+    label: "Unsolvable",
+    description: "Looks fine but has no valid solution.",
+    board: [
+      [1, 0, 5, 8, 0, 2, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 7, 0, 0, 0, 0, 0],
+      [0, 2, 0, 0, 0, 0, 0, 6, 0],
+      [0, 0, 0, 0, 8, 0, 0, 0, 0],
+      [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      [0, 0, 0, 6, 0, 3, 0, 0, 0],
+      [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      [0, 0, 0, 2, 0, 5, 0, 0, 0],
+    ],
+  },
+  {
+    label: "Invalid grid",
+    description: "Contains conflicting numbers in the first row.",
+    board: [
+      [5, 5, 0, 0, 7, 0, 0, 0, 0],
+      [6, 0, 0, 1, 9, 5, 0, 0, 0],
+      [0, 9, 8, 0, 0, 0, 0, 6, 0],
+      [8, 0, 0, 0, 6, 0, 0, 0, 3],
+      [4, 0, 0, 8, 0, 3, 0, 0, 1],
+      [7, 0, 0, 0, 2, 0, 0, 0, 6],
+      [0, 6, 0, 0, 0, 0, 2, 8, 0],
+      [0, 0, 0, 4, 1, 9, 0, 0, 5],
+      [0, 0, 0, 0, 8, 0, 0, 7, 9],
+    ],
+  },
 ];
 
 function createCell(row, col) {
@@ -166,6 +221,9 @@ async function submitBoard(event) {
     if (payload.unique !== undefined) {
       message += `\n\nSolution is ${payload.unique ? "unique" : "not unique"}.`;
     }
+    if (payload.warning) {
+      message += `\n\n⚠️ ${payload.warning}`;
+    }
     output.textContent = message;
   } catch (error) {
     output.textContent = error.message;
@@ -184,5 +242,53 @@ exampleButton.addEventListener("click", () => {
   setBoard(EXAMPLE_BOARD);
   output.textContent = "Loaded example puzzle.";
   output.classList.remove("error");
+});
+
+randomButton.addEventListener("click", () => {
+  const choice = RANDOM_PUZZLES[Math.floor(Math.random() * RANDOM_PUZZLES.length)];
+  setBoard(choice.board);
+  output.textContent = `Loaded random puzzle: ${choice.label}.\n${choice.description}`;
+  output.classList.remove("error");
+});
+
+verifyButton.addEventListener("click", async () => {
+  let board;
+  try {
+    board = collectBoard();
+  } catch (error) {
+    output.textContent = error.message;
+    output.classList.add("error");
+    return;
+  }
+
+  output.textContent = "Checking puzzle...";
+  output.classList.remove("error");
+
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ board }),
+    });
+    const payload = await response.json();
+    if (!response.ok) {
+      throw new Error(payload.error || "Unknown error");
+    }
+
+    output.textContent = payload.message || "Puzzle analysis complete.";
+    if (!payload.valid || !payload.solvable) {
+      output.classList.add("error");
+    } else {
+      output.classList.remove("error");
+      if (payload.unique === false) {
+        output.textContent += "\n⚠️ This puzzle has multiple solutions.";
+      }
+    }
+  } catch (error) {
+    output.textContent = error.message;
+    output.classList.add("error");
+  }
 });
 

@@ -7,7 +7,7 @@ from collections.abc import Sequence
 
 from flask import Flask, jsonify, render_template, request
 
-from .core import parse_board, solve_board, solve_with_uniqueness_check
+from .core import is_valid_board, solve_with_uniqueness_check
 
 
 class InvalidPayload(ValueError):
@@ -20,20 +20,20 @@ def _load_board(payload: Any) -> list[list[int]]:
     if len(payload) != 9:
         raise InvalidPayload("Board must have 9 rows")
 
-    rows: list[str] = []
+    board: list[list[int]] = []
     for row in payload:
         if not isinstance(row, Sequence) or len(row) != 9:
             raise InvalidPayload("Each row must contain 9 values")
-        converted_row: list[str] = []
+        converted_row: list[int] = []
         for value in row:
             if not isinstance(value, int):
                 raise InvalidPayload("Board values must be integers between 0 and 9")
             if value < 0 or value > 9:
                 raise InvalidPayload("Board values must be between 0 and 9")
-            converted_row.append(str(value))
-        rows.append("".join(converted_row))
+            converted_row.append(value)
+        board.append(converted_row)
 
-    return parse_board("\n".join(rows))
+    return board
 
 
 def create_app() -> Flask:
@@ -62,21 +62,47 @@ def create_app() -> Flask:
         if "board" not in data:
             raise InvalidPayload("Missing 'board' in payload")
         board = _load_board(data["board"])
-        check_unique = bool(data.get("check_uniqueness"))
+        if not is_valid_board(board):
+            return jsonify({"error": "Board has conflicting values"}), 422
 
-        if check_unique:
-            solution, is_unique = solve_with_uniqueness_check(board)
-        else:
-            solution = solve_board(board)
-            is_unique = False
+        solution, is_unique = solve_with_uniqueness_check(board)
 
         if solution is None:
             return jsonify({"error": "Puzzle is unsolvable"}), 422
 
-        response = {"solution": solution}
-        if check_unique:
-            response["unique"] = is_unique
+        response = {"solution": solution, "unique": is_unique}
+        if not is_unique:
+            response["warning"] = "Puzzle admits multiple solutions"
         return jsonify(response)
+
+    @app.post("/api/analyze")
+    def api_analyze():
+        data = request.get_json(silent=True)
+        if data is None:
+            raise InvalidPayload("Invalid JSON payload")
+        if "board" not in data:
+            raise InvalidPayload("Missing 'board' in payload")
+
+        board = _load_board(data["board"])
+        if not is_valid_board(board):
+            return jsonify({"valid": False, "solvable": False, "message": "Board has conflicting values"})
+
+        solution, is_unique = solve_with_uniqueness_check(board)
+        if solution is None:
+            return jsonify({"valid": True, "solvable": False, "message": "Puzzle is unsolvable"})
+
+        message = "Puzzle is solvable"
+        if is_unique:
+            message += " with a unique solution"
+        else:
+            message += ", but it has multiple solutions"
+
+        return jsonify({
+            "valid": True,
+            "solvable": True,
+            "unique": is_unique,
+            "message": message,
+        })
 
     return app
 
