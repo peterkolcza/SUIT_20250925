@@ -61,6 +61,41 @@ make bench
 
 Runs `python -m sudoku.solve --bench puzzles/hard.txt` to capture average solve times.
 
+## Git használati útmutató
+
+### Repozitórium klónozása nulláról
+
+1. Válaszd ki azt a mappát, ahová a projekt kerülni fog.
+2. Futtasd az alábbi parancsot (a `<url>` helyére írd be a GitHub repó HTTPS vagy SSH URL-jét):
+
+   ```bash
+   git clone <url>
+   cd SUIT_20250925
+   ```
+
+   Az első sor letölti a teljes repót, a második pedig belép a frissen létrehozott könyvtárba.
+
+### Frissítés a GitHub-on történt változások után
+
+Ha már klónoztad a repót és szeretnéd a legfrissebb `main` állapotot, lépj a projekt mappájába, majd futtasd:
+
+```bash
+git pull origin main
+```
+
+Ez letölti és beolvasztja a távoli `main` ágon történt változtatásokat a helyi példányodba. Ha helyi módosításaid vannak, érdemes előbb commitolni vagy stash-elni őket, hogy elkerüld az ütközéseket.
+
+### Másik branch letöltése és tesztelése
+
+Amennyiben nem a `main`, hanem egy konkrét feature vagy fix branch állapotát szeretnéd kipróbálni:
+
+```bash
+git fetch origin
+git checkout <branch-név>
+```
+
+Az első parancs letölti a távoli branch-ek aktuális állapotát, a második pedig átvált a megadott `<branch-név>` branchre. Ha még nincs helyi példánya a branch-nek, a `git checkout` létrehozza azt a távoli (`origin/<branch-név>`) alapján.
+
 ## API
 
 `POST /api/solve`
