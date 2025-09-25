@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sudoku Megoldó — Demo</title>
+  <style>
+    :root {
+      --bg: #0b0f14; --panel:#121821; --ink:#dbe7ff; --muted:#8fa3c7; --accent:#5eead4;
+      --danger:#ef4444; --warn:#f59e0b; --ok:#22c55e; --grid:#243041; --cell:#0f1520; --cell-alt:#111a28;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, 'Helvetica Neue', Arial; background: radial-gradient(1200px 800px at 10% 5%, #111927, #0b0f14); color: var(--ink); }
+    header { padding: 24px 16px; text-align: center; }
+    header h1 { margin: 0 0 6px; font-size: 24px; letter-spacing: .2px; }
+    header p { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .wrap { max-width: 980px; margin: 18px auto 40px; padding: 0 16px; display: grid; grid-template-columns: 1fr 330px; gap: 20px; }
+    @media (max-width: 900px){ .wrap{ grid-template-columns: 1fr; } }
+
+    .board { background: var(--panel); border: 1px solid #1c2433; border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+    .grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; background: var(--grid); padding: 2px; border-radius: 10px; }
+    .cell { position: relative; width: 100%; aspect-ratio: 1/1; background: var(--cell); color: var(--ink); border: none; outline: none; text-align: center; font-size: 22px; font-weight: 600; border-radius: 8px; }
+    .cell:nth-child(odd){ background: var(--cell-alt); }
+    .cell:focus { box-shadow: 0 0 0 2px #334155, 0 0 0 4px rgba(94,234,212,.3); }
+    .fixed { color: #9ec5ff; }
+    .invalid { background: rgba(239, 68, 68, .18) !important; }
+
+    /* Thick subgrid borders */
+    .grid { position: relative; }
+    .grid::before, .grid::after { content: ""; position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; }
+    .grid::before { box-shadow:
+      inset 0 0 0 2px #314056,
+      inset calc(100%/3) 0 0 0 2px #314056,
+      inset calc(100%/3*2) 0 0 0 2px #314056,
+      inset 0 calc(100%/3) 0 0 2px #314056,
+      inset 0 calc(100%/3*2) 0 0 2px #314056; border-radius: 10px; }
+
+    .side { background: var(--panel); border: 1px solid #1c2433; border-radius: 16px; padding: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.35); display: grid; gap: 12px; align-content: start; }
+    .row { display: grid; gap: 8px; }
+    label { font-size: 12px; color: var(--muted); }
+    textarea, input[type=text] { width: 100%; background: #0e1624; border: 1px solid #1e293b; color: var(--ink); padding: 10px 12px; border-radius: 10px; font-size: 13px; resize: vertical; min-height: 72px; }
+    .btns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    button { appearance: none; border: none; padding: 10px 12px; border-radius: 12px; font-weight: 700; cursor: pointer; color: #0b0f14; }
+    .primary { background: var(--accent); }
+    .muted { background: #cbd5e1; }
+    .danger { background: var(--danger); color:#fff; }
+    .ghost { background: #1f2937; color: var(--ink); }
+    .kpi { display:flex; gap:10px; flex-wrap:wrap; }
+    .pill { background:#0e1624; border:1px solid #1f2937; padding:8px 10px; border-radius: 999px; font-size:12px; color: var(--muted); }
+    .hint { color: var(--muted); font-size: 12px; }
+    .note { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .footer { text-align:center; color: var(--muted); font-size: 12px; margin-top: 10px; }
+    .small { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sudoku Megoldó — Gyors Demo</h1>
+    <p>Kattints a cellákra, töltsd ki (1–9), majd <strong>Megoldás</strong>. Minden a böngészőben fut — internet és backend nélkül.</p>
+  </header>
+
+  <div class="wrap">
+    <section class="board">
+      <div id="grid" class="grid" aria-label="Sudoku rács" role="grid"></div>
+      <div class="kpi" style="margin-top:12px">
+        <div class="pill" id="status">Készen áll.</div>
+        <div class="pill" id="time">Idő: –</div>
+        <div class="pill" id="steps">Lépések: 0</div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="row">
+        <label for="preset">Előre beállított feladványok</label>
+        <div class="btns">
+          <button class="ghost" onclick="loadPreset('easy')">Könnyű</button>
+          <button class="ghost" onclick="loadPreset('medium')">Közepes</button>
+          <button class="ghost" onclick="loadPreset('hard')">Nehéz</button>
+          <button class="ghost" onclick="loadPreset('evil')">Brutál</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="importStr">Import/Export (81 karakteres string, 0 vagy . az üres)
+        </label>
+        <input type="text" id="importStr" placeholder="pl.: 53..7....6..195....98....6.8...6...34..8.3..17...2...6....28....419..5....8..79" />
+        <div class="btns">
+          <button class="muted" onclick="importString()">Betöltés</button>
+          <button class="muted" onclick="exportString()">Export</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="btns">
+          <button class="primary" onclick="solve()">Megoldás</button>
+          <button class="danger" onclick="resetBoard()">Törlés</button>
+        </div>
+        <div class="btns">
+          <button class="ghost" onclick="checkValidity()">Ellenőrzés</button>
+          <button class="ghost" onclick="fillSingles()">Egyszerű lépés</button>
+        </div>
+        <span class="hint">Tipp: használd a billentyűket (1–9), törléshez 0 vagy Backspace.</span>
+      </div>
+
+      <div class="note">
+        <strong>Algoritmus:</strong> backtracking + MRV (minimum remaining values) + egyszerű jelölések.
+        Gyors és megbízható, tipikus feladványoknál &lt;1 ms.
+      </div>
+      <div class="footer">© Sudoku Demo — kliensoldali, nyílt forrású megoldó</div>
+    </aside>
+  </div>
+
+  <script>
+    const gridEl = document.getElementById('grid');
+    const statusEl = document.getElementById('status');
+    const timeEl = document.getElementById('time');
+    const stepsEl = document.getElementById('steps');
+
+    const SIZE = 9;
+    const cells = [];
+
+    function createGrid(){
+      gridEl.innerHTML = '';
+      cells.length = 0;
+      for(let i=0;i<SIZE*SIZE;i++){
+        const input = document.createElement('input');
+        input.className = 'cell';
+        input.setAttribute('maxlength','1');
+        input.setAttribute('aria-label',`Cell ${i+1}`);
+        input.addEventListener('input', (e)=>{
+          const v = e.target.value.replace(/[^1-9]/g,'');
+          e.target.value = v;
+          e.target.classList.remove('invalid');
+        });
+        input.addEventListener('keydown', (e)=>{
+          if(['Backspace','Delete','0'].includes(e.key)){ e.target.value = ''; }
+          if(/^[1-9]$/.test(e.key)){ e.target.value = e.key; e.preventDefault(); }
+        });
+        gridEl.appendChild(input);
+        cells.push(input);
+      }
+    }
+
+    function get(idx){ return Number(cells[idx].value || 0); }
+    function set(idx, val, fixed=false){
+      cells[idx].value = val? String(val): '';
+      cells[idx].classList.toggle('fixed', fixed && val);
+    }
+
+    function readBoard(){
+      const board = Array.from({length: SIZE}, (_,r)=>Array.from({length: SIZE},(_,c)=>{
+        const v = get(r*SIZE+c);
+        return v||0;
+      }));
+      return board;
+    }
+
+    function writeBoard(board, markFixed=false){
+      for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+        const idx = r*SIZE+c;
+        set(idx, board[r][c], markFixed);
+      }
+    }
+
+    function resetBoard(){
+      for(const el of cells){ el.value = ''; el.classList.remove('fixed','invalid'); }
+      status('Törölve.');
+      stepsEl.textContent = 'Lépések: 0';
+      timeEl.textContent = 'Idő: –';
+    }
+
+    function status(msg, kind='info'){
+      statusEl.textContent = msg;
+      statusEl.style.color = kind==='error' ? '#fecaca' : kind==='ok' ? '#a7f3d0' : 'var(--muted)';
+    }
+
+    function validPlacement(board, r, c, val){
+      for(let i=0;i<9;i++) if(board[r][i]===val || board[i][c]===val) return false;
+      const br = Math.floor(r/3)*3, bc = Math.floor(c/3)*3;
+      for(let i=0;i<3;i++) for(let j=0;j<3;j++) if(board[br+i][bc+j]===val) return false;
+      return true;
+    }
+
+    function findMRV(board){
+      let best=null, bestCount=10, options=null;
+      for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c]===0){
+        const opts=[];
+        for(let v=1; v<=9; v++) if(validPlacement(board,r,c,v)) opts.push(v);
+        if(opts.length===0) return {r,c,opts};
+        if(opts.length<bestCount){ best={r,c}; bestCount=opts.length; options=opts; if(bestCount===1) return {r,c,opts}; }
+      }
+      return best? {r:best.r, c:best.c, opts:options}: null;
+    }
+
+    let steps=0;
+
+    function solveBoard(board){
+      const mrv = findMRV(board);
+      if(!mrv) return true; // solved
+      const {r,c,opts} = mrv;
+      if(opts.length===0) return false; // dead end
+      for(const v of opts){
+        board[r][c]=v; steps++;
+        if(solveBoard(board)) return true;
+        board[r][c]=0;
+      }
+      return false;
+    }
+
+    function isCompleteAndValid(board){
+      for(let r=0;r<9;r++) for(let c=0;c<9;c++){
+        const v=board[r][c];
+        if(v===0) return false;
+        board[r][c]=0; // temporarily clear to validate uniqueness
+        const ok = validPlacement(board,r,c,v);
+        board[r][c]=v;
+        if(!ok) return false;
+      }
+      return true;
+    }
+
+    function checkValidity(){
+      const board = readBoard();
+      // Clear visuals
+      for(const el of cells) el.classList.remove('invalid');
+      let ok = true;
+      for(let r=0;r<9;r++) for(let c=0;c<9;c++){
+        const v = board[r][c];
+        if(v===0) continue;
+        board[r][c]=0;
+        const valid = validPlacement(board,r,c,v);
+        board[r][c]=v;
+        if(!valid){
+          cells[r*9+c].classList.add('invalid');
+          ok=false;
+        }
+      }
+      status(ok? 'Jó irány! Nincs ütközés.' : 'Érvénytelen lépés(ek): pirossal jelölve.', ok? 'ok':'error');
+      return ok;
+    }
+
+    function fillSingles(){
+      const board = readBoard();
+      let filled = 0;
+      let progress = true;
+      while(progress){
+        progress = false;
+        for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c]===0){
+          const opts=[];
+          for(let v=1; v<=9; v++) if(validPlacement(board,r,c,v)) opts.push(v);
+          if(opts.length===1){ board[r][c]=opts[0]; filled++; progress=true; }
+        }
+      }
+      writeBoard(board);
+      status(filled? `Egyszerű lépés(ek) alkalmazva: ${filled}` : 'Nincs kitölthető egyértelmű cella.');
+    }
+
+    function solve(){
+      if(!checkValidity()) return;
+      const board = readBoard();
+      const t0 = performance.now();
+      steps = 0;
+      const ok = solveBoard(board);
+      const ms = performance.now()-t0;
+      if(ok){
+        writeBoard(board);
+        status('Megoldva ✔', 'ok');
+      } else {
+        status('Nincs megoldás erre a bemenetre.', 'error');
+      }
+      timeEl.textContent = `Idő: ${ms.toFixed(2)} ms`;
+      stepsEl.textContent = `Lépések: ${steps}`;
+    }
+
+    function importString(){
+      const s = document.getElementById('importStr').value.trim();
+      const clean = s.replace(/[^0-9\.]/g,'');
+      if(clean.length!==81){ status('Az import stringnek pontosan 81 karakterből kell állnia (0 vagy . az üres).', 'error'); return; }
+      const board = Array.from({length:9},()=>Array(9).fill(0));
+      for(let i=0;i<81;i++){
+        const ch = clean[i];
+        const v = ch==='.'? 0 : Number(ch);
+        board[Math.floor(i/9)][i%9]=v;
+      }
+      writeBoard(board, /*markFixed*/ true);
+      status('Feladvány betöltve.');
+    }
+
+    function exportString(){
+      const board = readBoard();
+      let s='';
+      for(let r=0;r<9;r++) for(let c=0;c<9;c++) s += board[r][c]||'.';
+      const input = document.getElementById('importStr');
+      input.value = s;
+      input.select();
+      document.execCommand('copy');
+      status('Exportálva a mezőbe és vágólapra másolva.');
+    }
+
+    const PRESETS = {
+      easy:   '53..7....6..195....98....6.8...6...34..8.3..17...2...6....28....419..5....8..79',
+      medium: '6.159.87...9....1..4.3..5....1.3..2.9...8...7.6..5.1....8..9.4..5....7...73.165.2',
+      hard:   '..3.2.6..9..3.5..1..18.64..81.29..7.......8..67.82..26..5.3..9..4.9..2..2.1.4..',
+      evil:   '8..........36....7..9.2...5...7.......457....1...3...1....68..85...1....9....4..'
+    };
+
+    function loadPreset(name){
+      document.getElementById('importStr').value = PRESETS[name];
+      importString();
+    }
+
+    // Init
+    createGrid();
+    loadPreset('easy');
+  </script>
+</body>
+</html>
