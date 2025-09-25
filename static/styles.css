@@ -1,0 +1,143 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 1.5rem;
+  background: #f5f5f5;
+  color: #222;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #111;
+    color: #f3f3f3;
+  }
+  .container {
+    background: #1c1c1c;
+  }
+  input[type="text"] {
+    background: #2b2b2b;
+    color: #f3f3f3;
+  }
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 2px;
+  background: #333;
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.cell {
+  position: relative;
+}
+
+.cell input {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: none;
+  text-align: center;
+  font-size: 1.2rem;
+  outline: none;
+  background: white;
+  transition: background 0.2s ease;
+}
+
+.cell input:focus {
+  background: #cde8ff;
+}
+
+.cell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.cell.subgrid-right::after {
+  border-right-width: 3px;
+}
+
+.cell.subgrid-bottom::after {
+  border-bottom-width: 3px;
+}
+
+.controls {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  background: #e0e0e0;
+  color: inherit;
+  font-weight: 600;
+}
+
+button.primary {
+  background: #2563eb;
+  color: white;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.output {
+  margin-top: 1.5rem;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+  white-space: pre;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 1rem;
+  border-radius: 10px;
+  min-height: 5rem;
+}
+
+.output.error {
+  background: #991b1b;
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 1rem;
+  }
+  .container {
+    padding: 1rem;
+  }
+  .cell input {
+    font-size: 1rem;
+  }
+}
