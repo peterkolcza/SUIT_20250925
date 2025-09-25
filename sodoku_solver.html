@@ -98,7 +98,8 @@
         </div>
         <div class="btns">
           <button class="ghost" onclick="checkValidity()">Ellenőrzés</button>
-          <button class="ghost" onclick="fillSingles()">Egyszerű lépés</button>
+          <button class="ghost" onclick="fillSingles()">Összes egyértelmű megoldások kitöltése</button>
+          <button class="ghost" style="grid-column: span 2;" onclick="fillSingleStep()">Egy egyértelmű megoldás kitöltése</button>
         </div>
         <span class="hint">Tipp: használd a billentyűket (1–9), törléshez 0 vagy Backspace.</span>
       </div>
@@ -240,6 +241,12 @@
       return ok;
     }
 
+    function optionsForCell(board, r, c){
+      const opts=[];
+      for(let v=1; v<=9; v++) if(validPlacement(board,r,c,v)) opts.push(v);
+      return opts;
+    }
+
     function fillSingles(){
       const board = readBoard();
       let filled = 0;
@@ -247,13 +254,29 @@
       while(progress){
         progress = false;
         for(let r=0;r<9;r++) for(let c=0;c<9;c++) if(board[r][c]===0){
-          const opts=[];
-          for(let v=1; v<=9; v++) if(validPlacement(board,r,c,v)) opts.push(v);
+          const opts = optionsForCell(board,r,c);
           if(opts.length===1){ board[r][c]=opts[0]; filled++; progress=true; }
         }
       }
       writeBoard(board);
-      status(filled? `Egyszerű lépés(ek) alkalmazva: ${filled}` : 'Nincs kitölthető egyértelmű cella.');
+      status(filled? `Kitöltött egyértelmű mezők: ${filled}` : 'Nincs kitölthető egyértelmű cella.');
+    }
+
+    function fillSingleStep(){
+      const board = readBoard();
+      for(let r=0;r<9;r++){
+        for(let c=0;c<9;c++){
+          if(board[r][c]!==0) continue;
+          const opts = optionsForCell(board,r,c);
+          if(opts.length===1){
+            board[r][c]=opts[0];
+            writeBoard(board);
+            status(`Kitöltött cella (${r+1}, ${c+1}) értéke: ${opts[0]}`);
+            return;
+          }
+        }
+      }
+      status('Nincs kitölthető egyértelmű cella.');
     }
 
     function solve(){
